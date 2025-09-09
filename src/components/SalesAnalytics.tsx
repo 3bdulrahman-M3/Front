@@ -54,7 +54,7 @@ const getNumber = (obj: AnyRecord, keys: string[]): number => {
   return 0;
 };
 
-const API_BASE = "http://localhost:8000/api/";
+const API_BASE = "https://educational-platform-production.up.railway.app/api/";
 const fetchJson = async (
   path: string,
   params?: Record<string, string | number | boolean>
