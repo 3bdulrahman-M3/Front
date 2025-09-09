@@ -1,53 +1,79 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   getCourseReviews,
   createReview,
   editReview,
   deleteReview,
   getCourse,
-} from "../api/api"; // adjust path if needed
-import { Star, Loader2, Quote } from "lucide-react";
+} from "../api/api";
+import {
+  Star,
+  Loader2,
+  Quote,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Edit3,
+  Trash2,
+} from "lucide-react";
 
 const CourseReviewsSection = ({ courseId }) => {
   const [reviews, setReviews] = useState([]);
   const [content, setContent] = useState("");
   const [rating, setRating] = useState(5);
-  const [editingId, setEditingId] = useState(null);
   const [isInstructor, setIsInstructor] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [reviewsLoaded, setReviewsLoaded] = useState(false); // 👈 NEW
+  const [reviewsLoaded, setReviewsLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  // pagination + filtering
+  // pagination + filtering for the popup
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [filter, setFilter] = useState(null);
 
-  // popup
+  // popups
   const [showAll, setShowAll] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  // inline edit states
+  const [inlineEditId, setInlineEditId] = useState(null);
+  const [inlineContent, setInlineContent] = useState("");
+  const [inlineRating, setInlineRating] = useState(5);
+
+  const user = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user"));
+    } catch {
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
-    fetchReviews(page);
+    fetchReviews(page, filter);
     checkIfInstructor();
-  }, [page]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filter, courseId]);
 
-  const fetchReviews = async (currentPage = 1) => {
+  const fetchReviews = async (currentPage = 1, currentFilter = null) => {
     setLoading(true);
     try {
       const data = await getCourseReviews(courseId, {
         page: currentPage,
-        limit: 6, // show 6 per page inside popup
+        limit: 6,
       });
-      setReviews(data.results || []);
+      let list = data.results || [];
+      if (currentFilter) {
+        list = list.filter((r) => r.rating === currentFilter);
+      }
+      setReviews(list);
       setTotalPages(data.pages || 1);
     } catch (err) {
       console.error("Error fetching reviews:", err);
     } finally {
       setLoading(false);
-      setReviewsLoaded(true); // 👈 mark as done
+      setReviewsLoaded(true);
     }
   };
 
@@ -64,15 +90,10 @@ const CourseReviewsSection = ({ courseId }) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (editingId) {
-        await editReview(editingId, { content, rating });
-      } else {
-        await createReview(courseId, { content, rating });
-      }
+      await createReview(courseId, { content, rating });
       setContent("");
       setRating(5);
-      setEditingId(null);
-      fetchReviews(page);
+      fetchReviews(page, filter);
     } catch (err) {
       console.error("Error submitting review:", err);
     } finally {
@@ -80,30 +101,159 @@ const CourseReviewsSection = ({ courseId }) => {
     }
   };
 
-  const handleEdit = (review) => {
-    setEditingId(review.id);
-    setContent(review.content);
-    setRating(review.rating);
+  const startInlineEdit = (review) => {
+    setInlineEditId(review.id);
+    setInlineContent(review.content);
+    setInlineRating(review.rating);
   };
 
-  const handleDelete = async (id) => {
+  const saveInlineEdit = async (id) => {
+    try {
+      await editReview(id, { content: inlineContent, rating: inlineRating });
+      setInlineEditId(null);
+      setInlineContent("");
+      setInlineRating(5);
+      fetchReviews(page, filter);
+    } catch (err) {
+      console.error("Error editing review:", err);
+    }
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineEditId(null);
+    setInlineContent("");
+    setInlineRating(5);
+  };
+
+  const confirmDelete = (id) => {
     setDeletingId(id);
+    setShowConfirmDelete(true);
+  };
+
+  const handleDelete = async () => {
+    const id = deletingId;
+    if (!id) return;
     try {
       await deleteReview(id);
-      fetchReviews(page);
+      fetchReviews(page, filter);
     } catch (err) {
       console.error("Error deleting review:", err);
     } finally {
       setDeletingId(null);
+      setShowConfirmDelete(false);
     }
   };
 
   const userReview = reviews.find((r) => r.rater === user?.id);
 
-  // filtered reviews for popup
-  const filteredReviews = filter
-    ? reviews.filter((r) => r.rating === filter)
-    : reviews;
+  // Outside grid: show max 4 cards
+  const outsideReviews = reviews.slice(0, 4);
+  const outsideCount = outsideReviews.length;
+
+  const outsideGridCols =
+    outsideCount <= 1
+      ? "grid-cols-1"
+      : outsideCount === 2
+      ? "sm:grid-cols-2"
+      : outsideCount === 3
+      ? "sm:grid-cols-2 lg:grid-cols-3"
+      : "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
+
+  const Stars = ({ n, onClick, editable = false }) => (
+    <div className="flex mb-2">
+      {[...Array(5)].map((_, i) => (
+        <Star
+          key={i}
+          onClick={editable ? () => onClick(i + 1) : undefined}
+          className={`h-5 w-5 ${
+            i < n ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+          } ${editable ? "cursor-pointer" : ""}`}
+        />
+      ))}
+    </div>
+  );
+
+  const ReviewCard = ({ review }) => {
+    const canManage = review.rater === user?.id;
+    const isEditing = inlineEditId === review.id;
+
+    return (
+      <div className="relative bg-gray-50 rounded-2xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 flex flex-col justify-between">
+        {isEditing ? (
+          <div className="flex flex-col gap-3">
+            <textarea
+              className="w-full border border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"
+              rows="3"
+              value={inlineContent}
+              onChange={(e) => setInlineContent(e.target.value)}
+              maxLength={100}
+            />
+            <Stars
+              n={inlineRating}
+              editable
+              onClick={(val) => setInlineRating(val)}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={cancelInlineEdit}
+                className="px-3 py-1 rounded-lg border hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => saveInlineEdit(review.id)}
+                className="px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mb-4">
+              <Quote className="h-6 w-6 text-blue-600 mb-2" />
+              <Stars n={review.rating} />
+              <p className="text-gray-700 leading-relaxed">
+                “{review.content}”
+              </p>
+            </div>
+
+            <div className="flex items-center mt-4">
+              <img
+                src={review.rater_image || "/default-avatar.png"}
+                alt={`${review.rater_first_name} ${review.rater_last_name}`}
+                className="w-10 h-10 rounded-full object-cover mr-3"
+              />
+              <div className="min-w-0">
+                <h4 className="font-semibold text-gray-900 truncate">
+                  {review.rater_first_name} {review.rater_last_name}
+                </h4>
+              </div>
+
+              {canManage && (
+                <div className="ml-auto flex gap-2">
+                  <button
+                    onClick={() => startInlineEdit(review)}
+                    className="p-2 rounded-lg hover:bg-gray-200"
+                    aria-label="Edit review"
+                  >
+                    <Edit3 className="h-5 w-5 text-blue-600" />
+                  </button>
+                  <button
+                    onClick={() => confirmDelete(review.id)}
+                    className="p-2 rounded-lg hover:bg-gray-200"
+                    aria-label="Delete review"
+                  >
+                    <Trash2 className="h-5 w-5 text-red-600" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="bg-white shadow-xl rounded-2xl p-8 mt-8">
@@ -118,48 +268,11 @@ const CourseReviewsSection = ({ courseId }) => {
         </div>
       ) : (
         <>
-          {/* --- Outside reviews as testimonial-style cards --- */}
-          <div
-            className={`grid gap-8 mb-8 ${
-              reviews.length === 1
-                ? "grid-cols-1"
-                : "sm:grid-cols-2 lg:grid-cols-3"
-            }`}
-          >
-            {reviews.length > 0 ? (
-              reviews.slice(0, 4).map((review) => (
-                <div
-                  key={review.id}
-                  className="bg-gray-50 rounded-2xl p-8 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 flex flex-col justify-between"
-                >
-                  <div className="mb-6">
-                    <Quote className="h-8 w-8 text-blue-600 mb-4" />
-                    <div className="flex mb-4">
-                      {[...Array(review.rating)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className="h-5 w-5 text-yellow-500 fill-current"
-                        />
-                      ))}
-                    </div>
-                    <p className="text-gray-700 leading-relaxed">
-                      "{review.content}"
-                    </p>
-                  </div>
-
-                  <div className="flex items-center mt-4">
-                    <img
-                      src={review.rater_image || "/default-avatar.png"}
-                      alt={`${review.rater_first_name} ${review.rater_last_name}`}
-                      className="w-12 h-12 rounded-full object-cover mr-4"
-                    />
-                    <div>
-                      <h4 className="font-semibold text-gray-900">
-                        {review.rater_first_name} {review.rater_last_name}
-                      </h4>
-                    </div>
-                  </div>
-                </div>
+          {/* OUTSIDE GRID (max 4) */}
+          <div className={`grid gap-6 mb-8 ${outsideGridCols}`}>
+            {outsideReviews.length > 0 ? (
+              outsideReviews.map((review) => (
+                <ReviewCard key={review.id} review={review} />
               ))
             ) : (
               <p className="text-gray-500 text-center col-span-full">
@@ -168,7 +281,7 @@ const CourseReviewsSection = ({ courseId }) => {
             )}
           </div>
 
-          {/* --- Show "View all" if more than 4 --- */}
+          {/* View All button only if there are more than 4 */}
           {reviews.length > 4 && (
             <div className="flex justify-center mb-8">
               <button
@@ -180,10 +293,8 @@ const CourseReviewsSection = ({ courseId }) => {
             </div>
           )}
 
-          {/* --- Popup modal omitted for brevity (unchanged) --- */}
-
-          {/* --- Form to submit/edit review --- */}
-          {reviewsLoaded && !isInstructor && (!userReview || editingId) && (
+          {/* FORM for creating new review */}
+          {reviewsLoaded && !isInstructor && !userReview && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <textarea
                 className="w-full border border-gray-200 rounded-lg p-3 shadow-sm focus:ring-2 focus:ring-blue-500"
@@ -195,17 +306,7 @@ const CourseReviewsSection = ({ courseId }) => {
                 required
               />
               <div className="flex gap-2 items-center">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-6 w-6 cursor-pointer ${
-                      i < rating
-                        ? "fill-yellow-400 text-yellow-400"
-                        : "text-gray-300"
-                    }`}
-                    onClick={() => setRating(i + 1)}
-                  />
-                ))}
+                <Stars n={rating} editable onClick={(val) => setRating(val)} />
                 <span className="ml-2 text-sm text-gray-600">{rating} / 5</span>
               </div>
               <button
@@ -213,15 +314,125 @@ const CourseReviewsSection = ({ courseId }) => {
                 disabled={submitting}
                 className="px-6 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-md hover:shadow-lg transition disabled:opacity-50"
               >
-                {submitting
-                  ? editingId
-                    ? "Updating..."
-                    : "Posting..."
-                  : editingId
-                  ? "Update Review"
-                  : "Post Review"}
+                {submitting ? "Posting..." : "Post Review"}
               </button>
             </form>
+          )}
+
+          {/* VIEW ALL MODAL */}
+          {showAll && (
+            <div className="fixed inset-0 z-40 flex items-center justify-center mt-10 py-10">
+              <div
+                className="absolute inset-0 bg-black/50"
+                onClick={() => setShowAll(false)}
+              />
+              <div className="relative z-50 w-full max-w-5xl max-h-[85vh] overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <div className="flex items-center justify-between px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold">All Reviews</h3>
+                  <button
+                    className="p-2 rounded-full hover:bg-gray-100"
+                    onClick={() => setShowAll(false)}
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="px-6 py-4 border-b flex items-center gap-3">
+                  <Filter className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">
+                    Filter by rating:
+                  </span>
+                  <div className="flex gap-2">
+                    {[null, 5, 4, 3, 2, 1].map((val) => (
+                      <button
+                        key={String(val)}
+                        onClick={() => {
+                          setPage(1);
+                          setFilter(val);
+                        }}
+                        className={`px-3 py-1 rounded-full text-sm border ${
+                          filter === val
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {val === null ? "All" : `${val}★`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="px-6 py-6 overflow-y-auto max-h-[60vh]">
+                  {loading ? (
+                    <div className="flex justify-center items-center py-10">
+                      <Loader2 className="h-6 w-6 text-blue-600 animate-spin" />
+                      <span className="ml-2 text-gray-600">Loading…</span>
+                    </div>
+                  ) : reviews.length ? (
+                    <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+                      {reviews.map((review) => (
+                        <ReviewCard key={review.id} review={review} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center">
+                      No reviews found.
+                    </p>
+                  )}
+                </div>
+
+                {/* pagination */}
+                <div className="flex items-center justify-between px-6 py-4 border-t">
+                  <button
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border hover:bg-gray-50 disabled:opacity-50"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1 || loading}
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Prev
+                  </button>
+                  <div className="text-sm text-gray-600">
+                    Page {page} of {totalPages}
+                  </div>
+                  <button
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border hover:bg-gray-50 disabled:opacity-50"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages || loading}
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* DELETE CONFIRMATION */}
+          {showConfirmDelete && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div
+                className="absolute inset-0 bg-black/50"
+                onClick={() => setShowConfirmDelete(false)}
+              />
+              <div className="relative z-50 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                <h4 className="text-lg font-semibold mb-2">Delete review?</h4>
+                <p className="text-sm text-gray-600 mb-6">
+                  This action cannot be undone.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+                    onClick={() => setShowConfirmDelete(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                    onClick={handleDelete}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </>
       )}
