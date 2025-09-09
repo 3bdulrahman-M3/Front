@@ -80,8 +80,7 @@ type SidebarKey =
   | "pending"
   | "categories"
   | "analytics"
-  | "admins"
-  | "settings";
+  | "admins";
 
 const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);

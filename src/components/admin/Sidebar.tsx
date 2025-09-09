@@ -8,7 +8,6 @@ import {
   CheckSquare,
   Layers,
   BarChart3,
-  Settings,
 } from "lucide-react";
 
 type NavItem = {
@@ -20,8 +19,7 @@ type NavItem = {
     | "instructors"
     | "pending"
     | "categories"
-    | "analytics"
-    | "settings";
+    | "analytics";
   label: string;
   icon: React.ReactNode;
 };
@@ -55,11 +53,7 @@ const ITEMS: NavItem[] = [
     label: "Analytics",
     icon: <BarChart3 className="h-5 w-5" />,
   },
-  {
-    key: "settings",
-    label: "Settings",
-    icon: <Settings className="h-5 w-5" />,
-  },
+ 
 ];
 
 export const Sidebar: React.FC<{
