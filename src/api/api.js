@@ -1,9 +1,30 @@
 // src/api.js
 import axios from "axios";
 
+// Resolve base URL: env → local dev → production
+const resolvedBaseURL = (() => {
+  const vite =
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.VITE_API_BASE_URL;
+  const react =
+    typeof process !== "undefined" &&
+    process.env &&
+    process.env.REACT_APP_API_BASE_URL;
+  if (vite) return vite;
+  if (react) return react;
+  if (
+    typeof window !== "undefined" &&
+    /^localhost$|^127\.0\.0\.1$/.test(window.location.hostname)
+  ) {
+    return "http://localhost:8000/api/";
+  }
+  return "https://educational-platform-production.up.railway.app/api/";
+})();
+
 // Base instance
 const api = axios.create({
-  baseURL: "https://educational-platform-production.up.railway.app/api/",
+  baseURL: String(resolvedBaseURL).replace(/\/+$/, "/"),
   headers: {
     "Content-Type": "application/json",
   },
@@ -154,6 +175,46 @@ export const updateProfile = async (data) => {
 // ====== Instructor Request & Admin Approval ======
 export const requestInstructor = async (motivation = "") => {
   const res = await api.post("auth/instructor/request/", { motivation });
+  return res.data;
+};
+
+// New: multipart instructor request with documents and extra details
+export const requestInstructorWithDocs = async ({
+  full_name = "",
+  degree = "",
+  certifications = "",
+  files = [],
+  motivation = "",
+} = {}) => {
+  const form = new FormData();
+  if (full_name) {
+    form.append("full_name", full_name);
+    // Also send a compatibility alias expected by some backends
+    form.append("name", full_name);
+  }
+  if (degree) form.append("degree", degree);
+  if (certifications) form.append("certifications", certifications);
+  if (motivation) form.append("motivation", motivation);
+  (files || []).forEach((file) => form.append("files", file));
+  const res = await api.post("auth/instructor/request/", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data;
+};
+
+// Fetch the current user's instructor request
+export const getMyInstructorRequest = async () => {
+  const res = await api.get("auth/instructor/request/me/");
+  return res.data;
+};
+
+// Upload/replace the primary instructor photo (returns { photo_url, id })
+export const uploadInstructorPhoto = async (file) => {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await api.post("auth/instructor/upload_photo/", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return res.data;
 };
 

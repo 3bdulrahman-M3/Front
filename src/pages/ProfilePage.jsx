@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { getProfile, updateProfile, requestInstructor } from "../api/api";
+import { getProfile, updateProfile } from "../api/api";
+import BecomeInstructor from "../components/BecomeInstructor";
 import { User, Mail, BadgeCheck, Upload } from "lucide-react";
 import { toast } from "react-hot-toast";
 import InterestsPopup from "../components/Interests";
@@ -264,13 +265,11 @@ const ProfilePage = () => {
                 {profile.role}
               </span>
               {profile.role === "student" && (
-                <button
-                  onClick={handleBecomeInstructor}
-                  disabled={saving}
-                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-md hover:shadow-lg disabled:opacity-50"
-                >
-                  {saving ? "Updating..." : "Become Instructor"}
-                </button>
+                <BecomeInstructor
+                  onSubmitted={() => {
+                    /* Optionally refresh or toast */
+                  }}
+                />
               )}
             </div>
           </div>
