@@ -11,6 +11,8 @@ import {
   createAdmin,
 } from "../../api/api.js";
 import { motion, AnimatePresence } from "framer-motion";
+import Zoom from "react-medium-image-zoom";
+import "react-medium-image-zoom/dist/styles.css";
 import {
   Search,
   UserPlus,
@@ -43,6 +45,11 @@ type InstructorRequest = {
   motivation: string;
   status: string;
   created_at?: string;
+  full_name?: string;
+  degree?: string;
+  certifications?: string;
+  documents?: string[];
+  photo_url?: string;
 };
 type CourseRequest = {
   id: number;
@@ -96,6 +103,8 @@ const AdminDashboard: React.FC = () => {
   const [pendingCourses, setPendingCourses] = useState<CourseRequest[]>([]);
   const [instructorReqSearch, setInstructorReqSearch] = useState("");
   const [courseReqSearch, setCourseReqSearch] = useState("");
+  const [viewInstructorReq, setViewInstructorReq] =
+    useState<InstructorRequest | null>(null);
 
   // Students state
   const [students, setStudents] = useState<StudentUser[]>([]);
@@ -457,6 +466,7 @@ const AdminDashboard: React.FC = () => {
     "inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium transition-colors whitespace-nowrap";
   const btnApprove = `${btnBase} bg-green-600 text-white hover:bg-green-700 active:bg-green-800`;
   const btnReject = `${btnBase} bg-red-600 text-white hover:bg-red-700 active:bg-red-800`;
+  const btnView = `${btnBase} bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800`;
 
   // Navigation handlers for the fixed sidebar
   const sidebarActiveKey: string | undefined = section;
@@ -665,6 +675,16 @@ const AdminDashboard: React.FC = () => {
                                         <td className="py-2">
                                           <div className="flex gap-2">
                                             <button
+                                              className={btnView}
+                                              onClick={() =>
+                                                setViewInstructorReq(
+                                                  r as InstructorRequest
+                                                )
+                                              }
+                                            >
+                                              View
+                                            </button>
+                                            <button
                                               className={btnApprove}
                                               onClick={() =>
                                                 approveInstructorRow(r.id)
@@ -689,6 +709,119 @@ const AdminDashboard: React.FC = () => {
                               </tbody>
                             </table>
                           </div>
+                          {viewInstructorReq && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                              <div className="bg-white rounded-xl shadow p-6 w-[680px] max-w-[95vw]">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h3 className="text-lg font-semibold">
+                                    Instructor Request Details
+                                  </h3>
+                                  <button
+                                    className="text-gray-500"
+                                    onClick={() => setViewInstructorReq(null)}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  {viewInstructorReq.photo_url && (
+                                    <div className="col-span-2 flex justify-center mb-2">
+                                      <Zoom>
+                                        <img
+                                          src={viewInstructorReq.photo_url}
+                                          alt="Primary document"
+                                          className="w-24 h-24 object-cover rounded border cursor-zoom-in"
+                                        />
+                                      </Zoom>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="text-gray-500">User</div>
+                                    <div className="font-medium">
+                                      {viewInstructorReq.name ||
+                                        viewInstructorReq.user_id}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-500">Email</div>
+                                    <div className="font-medium">
+                                      {viewInstructorReq.email}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-500">
+                                      Full Name
+                                    </div>
+                                    <div className="font-medium">
+                                      {viewInstructorReq.full_name || "—"}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-500">Degree</div>
+                                    <div className="font-medium">
+                                      {viewInstructorReq.degree || "—"}
+                                    </div>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <div className="text-gray-500">
+                                      Certifications
+                                    </div>
+                                    <div className="font-medium break-words">
+                                      {viewInstructorReq.certifications || "—"}
+                                    </div>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <div className="text-gray-500">
+                                      Motivation
+                                    </div>
+                                    <div className="font-medium break-words">
+                                      {viewInstructorReq.motivation || "—"}
+                                    </div>
+                                  </div>
+                                </div>
+                                {Array.isArray(viewInstructorReq.documents) &&
+                                  viewInstructorReq.documents.length > 0 && (
+                                    <div className="mt-4">
+                                      <div className="text-gray-500 mb-2">
+                                        Documents
+                                      </div>
+                                      <div className="flex gap-3 flex-wrap">
+                                        {viewInstructorReq.documents.map(
+                                          (url: string, idx: number) =>
+                                            /\.pdf(\?|$)/i.test(url) ? (
+                                              <a
+                                                key={idx}
+                                                className="text-blue-600 underline"
+                                                href={url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                              >
+                                                PDF {idx + 1}
+                                              </a>
+                                            ) : (
+                                              <Zoom key={idx}>
+                                                <img
+                                                  src={url}
+                                                  alt={`doc-${idx}`}
+                                                  className="w-24 h-24 object-cover rounded border cursor-zoom-in"
+                                                />
+                                              </Zoom>
+                                            )
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                <div className="mt-6 flex justify-end gap-2">
+                                  <button
+                                    className="px-3 py-2 bg-gray-200 rounded"
+                                    onClick={() => setViewInstructorReq(null)}
+                                  >
+                                    Close
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 
