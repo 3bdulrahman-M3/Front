@@ -80,7 +80,8 @@ type SidebarKey =
   | "pending"
   | "categories"
   | "analytics"
-  | "admins";
+  | "admins"
+  | "chat";
 
 const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -485,6 +486,9 @@ const AdminDashboard: React.FC = () => {
         break;
       case "sessions":
         window.location.href = "/sessions";
+        break;
+      case "chat":
+        window.location.href = "/admin/chat";
         break;
       default:
         break;

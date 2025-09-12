@@ -1,9 +1,10 @@
 // src/api.js
 import axios from "axios";
+import { API_BASE_URL } from "../config/api";
 
 // Base instance
 const api = axios.create({
-  baseURL: "https://educational-platform-production.up.railway.app/api/",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -458,5 +459,70 @@ export const createPaymentIntent = async (courseId, data) => {
 
 export const askChat = async (message) => {
   const res = await api.post(`chatbot/message/`, { message });
+  return res.data;
+};
+
+// ========== CHAT SYSTEM ENDPOINTS ==========
+
+// Get or create user's conversation with admin
+export const getConversation = async () => {
+  const res = await api.get("chat/conversation/");
+  return res.data;
+};
+
+// Create a new conversation (for users)
+export const createConversation = async () => {
+  const res = await api.post("chat/conversation/");
+  return res.data;
+};
+
+// Get list of all conversations (admin only)
+export const getConversationsList = async (params = {}) => {
+  const res = await api.get("chat/conversations/", { params });
+  return res.data;
+};
+
+// Get specific conversation details
+export const getConversationDetail = async (conversationId) => {
+  const res = await api.get(`chat/conversations/${conversationId}/`);
+  return res.data;
+};
+
+// Get messages for a conversation (with pagination)
+export const getConversationMessages = async (conversationId, params = {}) => {
+  const res = await api.get(`chat/conversations/${conversationId}/messages/`, { params });
+  return res.data;
+};
+
+// Send a new message
+export const sendMessage = async (conversationId, data) => {
+  const isFormData = data instanceof FormData;
+  const res = await api.post(`chat/conversations/${conversationId}/messages/`, data, {
+    headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+  });
+  return res.data;
+};
+
+// Mark specific messages as read
+export const markMessagesRead = async (messageIds) => {
+  const res = await api.post("chat/messages/mark-read/", { message_ids: messageIds });
+  return res.data;
+};
+
+// Mark all messages in a conversation as read
+export const markConversationRead = async (conversationId) => {
+  const res = await api.post(`chat/conversations/${conversationId}/mark-read/`);
+  return res.data;
+};
+
+// Get unread message count for current user
+export const getUnreadCount = async () => {
+  const res = await api.get("chat/unread-count/");
+  return res.data;
+};
+
+// Get unread message count for a specific conversation
+export const getConversationUnreadCount = async (conversationId) => {
+  const res = await api.get(`chat/conversations/${conversationId}/unread-count/`);
   return res.data;
 };
