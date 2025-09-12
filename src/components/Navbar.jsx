@@ -16,6 +16,7 @@ import {
   Video,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
+import EnvironmentSwitcher from "./EnvironmentSwitcher";
 
 const Navbar = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -181,6 +182,9 @@ const Navbar = () => {
 
             {/* User Actions */}
             <div className="flex items-center space-x-4">
+              {/* Environment Switcher */}
+              <EnvironmentSwitcher />
+              
               {isLoggedIn ? (
                 <>
                   {/* Notification Bell */}
