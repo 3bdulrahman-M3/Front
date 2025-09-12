@@ -8,6 +8,7 @@ import {
   CheckSquare,
   Layers,
   BarChart3,
+  MessageCircle,
 } from "lucide-react";
 
 type NavItem = {
@@ -19,7 +20,8 @@ type NavItem = {
     | "instructors"
     | "pending"
     | "categories"
-    | "analytics";
+    | "analytics"
+    | "chat";
   label: string;
   icon: React.ReactNode;
 };
@@ -53,7 +55,11 @@ const ITEMS: NavItem[] = [
     label: "Analytics",
     icon: <BarChart3 className="h-5 w-5" />,
   },
- 
+  {
+    key: "chat",
+    label: "Support Chat",
+    icon: <MessageCircle className="h-5 w-5" />,
+  },
 ];
 
 export const Sidebar: React.FC<{
