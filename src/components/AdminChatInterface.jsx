@@ -1,76 +1,102 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageCircle, Users, Search, Clock, Check, CheckCheck, ArrowLeft } from 'lucide-react';
-import { 
-  getConversationsList, 
-  getConversationMessages, 
-  sendMessage, 
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Send,
+  MessageCircle,
+  Users,
+  Search,
+  Clock,
+  Check,
+  CheckCheck,
+  ArrowLeft,
+  RefreshCw,
+} from "lucide-react";
+import {
+  getConversationsList,
+  getConversationMessages,
+  sendMessage,
   markConversationRead,
-  getConversationUnreadCount 
-} from '../api/api';
+  getConversationUnreadCount,
+} from "../api/api";
 
 const AdminChatInterface = () => {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isUserActive, setIsUserActive] = useState(true);
   const messagesEndRef = useRef(null);
   const pollIntervalRef = useRef(null);
+  const lastActivityRef = useRef(Date.now());
 
   // Scroll to bottom when messages change
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   // Load conversations list
-  const loadConversations = async () => {
+  const loadConversations = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const params = {};
       if (searchTerm) params.search = searchTerm;
-      if (showUnreadOnly) params.unread_only = 'true';
-      
-      console.log('Loading conversations with params:', params);
+      if (showUnreadOnly) params.unread_only = "true";
+
+      console.log("Loading conversations with params:", params);
       const conversationsData = await getConversationsList(params);
-      console.log('Conversations data received:', conversationsData);
-      
+      console.log("Conversations data received:", conversationsData);
+
       // Handle both paginated and non-paginated responses
       const conversations = conversationsData.results || conversationsData;
       setConversations(Array.isArray(conversations) ? conversations : []);
-      
     } catch (err) {
-      console.error('Error loading conversations:', err);
-      setError(`Failed to load conversations: ${err.message || 'Unknown error'}`);
+      console.error("Error loading conversations:", err);
+      setError(
+        `Failed to load conversations: ${err.message || "Unknown error"}`
+      );
       setConversations([]);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
+    }
+  };
+
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await loadConversations(false);
+      if (selectedConversation) {
+        await loadMessages(selectedConversation.id);
+      }
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
   // Load messages for selected conversation
   const loadMessages = async (conversationId) => {
     try {
-      console.log('Loading messages for conversation:', conversationId);
+      console.log("Loading messages for conversation:", conversationId);
       const messagesData = await getConversationMessages(conversationId);
-      console.log('Messages data received:', messagesData);
-      
+      console.log("Messages data received:", messagesData);
+
       // Handle both paginated and non-paginated responses
       const messages = messagesData.results || messagesData;
       setMessages(Array.isArray(messages) ? messages : []);
-      
+
       // Mark conversation as read
       await markConversationRead(conversationId);
-      
+
       // Refresh conversations list to update unread counts
       loadConversations();
-      
     } catch (err) {
-      console.error('Error loading messages:', err);
-      setError(`Failed to load messages: ${err.message || 'Unknown error'}`);
+      console.error("Error loading messages:", err);
+      setError(`Failed to load messages: ${err.message || "Unknown error"}`);
       setMessages([]);
     }
   };
@@ -90,18 +116,17 @@ const AdminChatInterface = () => {
       setSending(true);
       const messageData = await sendMessage(selectedConversation.id, {
         content: newMessage.trim(),
-        message_type: 'text'
+        message_type: "text",
       });
-      
-      setMessages(prev => [...prev, messageData]);
-      setNewMessage('');
-      
+
+      setMessages((prev) => [...prev, messageData]);
+      setNewMessage("");
+
       // Scroll to bottom after sending
       setTimeout(scrollToBottom, 100);
-      
     } catch (err) {
-      setError('Failed to send message. Please try again.');
-      console.error('Error sending message:', err);
+      setError("Failed to send message. Please try again.");
+      console.error("Error sending message:", err);
     } finally {
       setSending(false);
     }
@@ -109,37 +134,107 @@ const AdminChatInterface = () => {
 
   // Poll for new messages in selected conversation
   const pollForMessages = async () => {
-    if (!selectedConversation) return;
-    
+    if (!selectedConversation || !isUserActive) return;
+
     try {
-      const messagesData = await getConversationMessages(selectedConversation.id);
+      const messagesData = await getConversationMessages(
+        selectedConversation.id
+      );
       const newMessages = messagesData.results || messagesData;
-      
+
       // Check if we have new messages
       if (newMessages.length > messages.length) {
         setMessages(newMessages);
         scrollToBottom();
       }
-      
-      // Refresh conversations list to update unread counts
-      loadConversations();
-      
     } catch (err) {
-      console.error('Error polling messages:', err);
+      console.error("Error polling messages:", err);
+    }
+  };
+
+  // Poll for conversation updates (unread counts, new conversations)
+  const pollForConversations = async () => {
+    if (!isUserActive) return;
+
+    try {
+      const params = {};
+      if (searchTerm) params.search = searchTerm;
+      if (showUnreadOnly) params.unread_only = "true";
+
+      const conversationsData = await getConversationsList(params);
+      const newConversations = conversationsData.results || conversationsData;
+
+      // Only update if there are actual changes
+      const hasChanges =
+        JSON.stringify(newConversations) !== JSON.stringify(conversations);
+      if (hasChanges) {
+        setConversations(
+          Array.isArray(newConversations) ? newConversations : []
+        );
+      }
+    } catch (err) {
+      console.error("Error polling conversations:", err);
     }
   };
 
   // Initialize
   useEffect(() => {
     loadConversations();
-    
-    // Set up polling every 3 seconds
-    pollIntervalRef.current = setInterval(pollForMessages, 3000);
-    
+
+    // Set up polling with different intervals
+    // Poll for messages every 10 seconds (less frequent)
+    const messagePollInterval = setInterval(pollForMessages, 10000);
+
+    // Poll for conversations every 30 seconds (much less frequent)
+    const conversationPollInterval = setInterval(pollForConversations, 30000);
+
+    // Store both intervals
+    pollIntervalRef.current = {
+      messages: messagePollInterval,
+      conversations: conversationPollInterval,
+    };
+
     return () => {
       if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+        clearInterval(pollIntervalRef.current.messages);
+        clearInterval(pollIntervalRef.current.conversations);
       }
+    };
+  }, []);
+
+  // Track user activity
+  useEffect(() => {
+    const handleActivity = () => {
+      lastActivityRef.current = Date.now();
+      setIsUserActive(true);
+    };
+
+    const checkActivity = () => {
+      const timeSinceLastActivity = Date.now() - lastActivityRef.current;
+      // If user hasn't been active for 2 minutes, reduce polling
+      setIsUserActive(timeSinceLastActivity < 120000);
+    };
+
+    // Add event listeners for user activity
+    const events = [
+      "mousedown",
+      "mousemove",
+      "keypress",
+      "scroll",
+      "touchstart",
+    ];
+    events.forEach((event) => {
+      document.addEventListener(event, handleActivity, true);
+    });
+
+    // Check activity every minute
+    const activityCheckInterval = setInterval(checkActivity, 60000);
+
+    return () => {
+      events.forEach((event) => {
+        document.removeEventListener(event, handleActivity, true);
+      });
+      clearInterval(activityCheckInterval);
     };
   }, []);
 
@@ -148,7 +243,7 @@ const AdminChatInterface = () => {
     const timeoutId = setTimeout(() => {
       loadConversations();
     }, 300);
-    
+
     return () => clearTimeout(timeoutId);
   }, [searchTerm, showUnreadOnly]);
 
@@ -158,9 +253,9 @@ const AdminChatInterface = () => {
   }, [messages]);
 
   const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -169,11 +264,11 @@ const AdminChatInterface = () => {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return "Today";
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      return "Yesterday";
     } else {
       return date.toLocaleDateString();
     }
@@ -195,12 +290,35 @@ const AdminChatInterface = () => {
       <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4">
-          <h2 className="text-lg font-semibold flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            Conversations
-          </h2>
-          <div className="text-blue-100 text-sm mt-1">
-            {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold flex items-center">
+                <Users className="h-5 w-5 mr-2" />
+                Conversations
+              </h2>
+              <div className="text-blue-100 text-sm mt-1 flex items-center">
+                <span>
+                  {conversations.length} conversation
+                  {conversations.length !== 1 ? "s" : ""}
+                </span>
+                {isRefreshing && (
+                  <span className="ml-2 text-xs">• Refreshing...</span>
+                )}
+                {!isUserActive && (
+                  <span className="ml-2 text-xs">• Auto-refresh paused</span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="p-2 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+              title="Refresh conversations"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+            </button>
           </div>
         </div>
 
@@ -232,14 +350,16 @@ const AdminChatInterface = () => {
           {loading ? (
             <div className="flex items-center justify-center p-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-600">Loading conversations...</span>
+              <span className="ml-2 text-gray-600">
+                Loading conversations...
+              </span>
             </div>
           ) : error ? (
             <div className="text-center text-red-500 py-8">
               <MessageCircle className="h-12 w-12 mx-auto mb-4 text-red-300" />
               <p className="font-medium">Error loading conversations</p>
               <p className="text-sm mt-2">{error}</p>
-              <button 
+              <button
                 onClick={loadConversations}
                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
@@ -250,7 +370,9 @@ const AdminChatInterface = () => {
             <div className="text-center text-gray-500 py-8">
               <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p>No conversations found</p>
-              <p className="text-sm mt-2">Users will appear here when they start chatting</p>
+              <p className="text-sm mt-2">
+                Users will appear here when they start chatting
+              </p>
             </div>
           ) : (
             conversations.map((conversation) => (
@@ -258,7 +380,9 @@ const AdminChatInterface = () => {
                 key={conversation.id}
                 onClick={() => handleSelectConversation(conversation)}
                 className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
-                  selectedConversation?.id === conversation.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                  selectedConversation?.id === conversation.id
+                    ? "bg-blue-50 border-l-4 border-l-blue-500"
+                    : ""
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -308,7 +432,8 @@ const AdminChatInterface = () => {
                   </button>
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">
-                      {selectedConversation.user_name || selectedConversation.user_email}
+                      {selectedConversation.user_name ||
+                        selectedConversation.user_email}
                     </h2>
                     <p className="text-sm text-gray-500">
                       {selectedConversation.user_email}
@@ -339,28 +464,36 @@ const AdminChatInterface = () => {
                         {date}
                       </div>
                     </div>
-                    
+
                     {/* Messages for this date */}
                     {dateMessages.map((message) => {
-                      const isFromCurrentUser = message.sender_role === 'admin';
-                      
+                      const isFromCurrentUser = message.sender_role === "admin";
+
                       return (
                         <div
                           key={`admin-message-${message.id}`}
-                          className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}
+                          className={`flex ${
+                            isFromCurrentUser ? "justify-end" : "justify-start"
+                          } mb-2`}
                         >
                           <div
                             className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                               isFromCurrentUser
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white text-gray-800 border border-gray-200'
+                                ? "bg-blue-600 text-white"
+                                : "bg-white text-gray-800 border border-gray-200"
                             }`}
                           >
                             <p className="text-sm">{message.content}</p>
-                            <div className={`flex items-center justify-end mt-1 space-x-1 ${
-                              isFromCurrentUser ? 'text-blue-100' : 'text-gray-500'
-                            }`}>
-                              <span className="text-xs">{formatTime(message.created_at)}</span>
+                            <div
+                              className={`flex items-center justify-end mt-1 space-x-1 ${
+                                isFromCurrentUser
+                                  ? "text-blue-100"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              <span className="text-xs">
+                                {formatTime(message.created_at)}
+                              </span>
                               {isFromCurrentUser && (
                                 <div>
                                   {message.is_read ? (
@@ -385,7 +518,7 @@ const AdminChatInterface = () => {
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 mx-4 rounded">
                 {error}
-                <button 
+                <button
                   onClick={() => setError(null)}
                   className="ml-2 text-red-500 hover:text-red-700"
                 >
@@ -423,7 +556,9 @@ const AdminChatInterface = () => {
           <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center text-gray-500">
               <MessageCircle className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium mb-2">Select a conversation</h3>
+              <h3 className="text-lg font-medium mb-2">
+                Select a conversation
+              </h3>
               <p>Choose a conversation from the sidebar to start chatting</p>
             </div>
           </div>
