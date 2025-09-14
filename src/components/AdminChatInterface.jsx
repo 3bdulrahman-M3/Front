@@ -92,6 +92,12 @@ const AdminChatInterface = () => {
       // Mark conversation as read
       await markConversationRead(conversationId);
 
+      // Refresh messages to get updated read status
+      const updatedMessagesData = await getConversationMessages(conversationId);
+      const updatedMessages =
+        updatedMessagesData.results || updatedMessagesData;
+      setMessages(Array.isArray(updatedMessages) ? updatedMessages : []);
+
       // Refresh conversations list to update unread counts
       loadConversations();
     } catch (err) {
@@ -142,9 +148,11 @@ const AdminChatInterface = () => {
       );
       const newMessages = messagesData.results || messagesData;
 
-      // Check if we have new messages
+      // Always update messages to get latest read status
+      setMessages(newMessages);
+
+      // Scroll to bottom if we have new messages
       if (newMessages.length > messages.length) {
-        setMessages(newMessages);
         scrollToBottom();
       }
     } catch (err) {
@@ -253,24 +261,40 @@ const AdminChatInterface = () => {
   }, [messages]);
 
   const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    if (!timestamp) return "Invalid Date";
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return "Invalid Date";
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      console.error("Error formatting timestamp:", error, timestamp);
+      return "Invalid Date";
+    }
   };
 
   const formatDate = (timestamp) => {
-    const date = new Date(timestamp);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    if (!timestamp) return "Invalid Date";
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return "Invalid Date";
 
-    if (date.toDateString() === today.toDateString()) {
-      return "Today";
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return "Yesterday";
-    } else {
-      return date.toLocaleDateString();
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      if (date.toDateString() === today.toDateString()) {
+        return "Today";
+      } else if (date.toDateString() === yesterday.toDateString()) {
+        return "Yesterday";
+      } else {
+        return date.toLocaleDateString();
+      }
+    } catch (error) {
+      console.error("Error formatting date:", error, timestamp);
+      return "Invalid Date";
     }
   };
 

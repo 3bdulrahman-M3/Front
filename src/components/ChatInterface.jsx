@@ -1,17 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageCircle, Users, Clock, Check, CheckCheck } from 'lucide-react';
-import { 
-  getConversation, 
-  getConversationMessages, 
-  sendMessage, 
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Send,
+  MessageCircle,
+  Users,
+  Clock,
+  Check,
+  CheckCheck,
+} from "lucide-react";
+import {
+  getConversation,
+  getConversationMessages,
+  sendMessage,
   markConversationRead,
-  getUnreadCount 
-} from '../api/api';
+  getUnreadCount,
+} from "../api/api";
 
 const ChatInterface = ({ isAdmin = false }) => {
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
@@ -21,7 +28,7 @@ const ChatInterface = ({ isAdmin = false }) => {
 
   // Scroll to bottom when messages change
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   // Load conversation and messages
@@ -30,23 +37,27 @@ const ChatInterface = ({ isAdmin = false }) => {
       setLoading(true);
       const conversationData = await getConversation();
       setConversation(conversationData);
-      
+
       // Load messages
       const messagesData = await getConversationMessages(conversationData.id);
       setMessages(messagesData.results || messagesData);
-      
+
       // Mark conversation as read if user is not admin
       if (!isAdmin) {
         await markConversationRead(conversationData.id);
+        // Refresh messages to get updated read status
+        const updatedMessagesData = await getConversationMessages(
+          conversationData.id
+        );
+        setMessages(updatedMessagesData.results || updatedMessagesData);
       }
-      
+
       // Get unread count
       const unreadData = await getUnreadCount();
       setUnreadCount(unreadData.unread_count);
-      
     } catch (err) {
-      setError('Failed to load conversation. Please try again.');
-      console.error('Error loading conversation:', err);
+      setError("Failed to load conversation. Please try again.");
+      console.error("Error loading conversation:", err);
     } finally {
       setLoading(false);
     }
@@ -61,18 +72,17 @@ const ChatInterface = ({ isAdmin = false }) => {
       setSending(true);
       const messageData = await sendMessage(conversation.id, {
         content: newMessage.trim(),
-        message_type: 'text'
+        message_type: "text",
       });
-      
-      setMessages(prev => [...prev, messageData]);
-      setNewMessage('');
-      
+
+      setMessages((prev) => [...prev, messageData]);
+      setNewMessage("");
+
       // Scroll to bottom after sending
       setTimeout(scrollToBottom, 100);
-      
     } catch (err) {
-      setError('Failed to send message. Please try again.');
-      console.error('Error sending message:', err);
+      setError("Failed to send message. Please try again.");
+      console.error("Error sending message:", err);
     } finally {
       setSending(false);
     }
@@ -81,33 +91,34 @@ const ChatInterface = ({ isAdmin = false }) => {
   // Poll for new messages
   const pollForMessages = async () => {
     if (!conversation) return;
-    
+
     try {
       const messagesData = await getConversationMessages(conversation.id);
       const newMessages = messagesData.results || messagesData;
-      
-      // Check if we have new messages
+
+      // Always update messages to get latest read status
+      setMessages(newMessages);
+
+      // Scroll to bottom if we have new messages
       if (newMessages.length > messages.length) {
-        setMessages(newMessages);
         scrollToBottom();
       }
-      
+
       // Update unread count
       const unreadData = await getUnreadCount();
       setUnreadCount(unreadData.unread_count);
-      
     } catch (err) {
-      console.error('Error polling messages:', err);
+      console.error("Error polling messages:", err);
     }
   };
 
   // Initialize chat
   useEffect(() => {
     loadConversation();
-    
+
     // Set up polling every 3 seconds
     pollIntervalRef.current = setInterval(pollForMessages, 3000);
-    
+
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
@@ -121,24 +132,40 @@ const ChatInterface = ({ isAdmin = false }) => {
   }, [messages]);
 
   const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    if (!timestamp) return "Invalid Date";
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return "Invalid Date";
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      console.error("Error formatting timestamp:", error, timestamp);
+      return "Invalid Date";
+    }
   };
 
   const formatDate = (timestamp) => {
-    const date = new Date(timestamp);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    } else {
-      return date.toLocaleDateString();
+    if (!timestamp) return "Invalid Date";
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return "Invalid Date";
+
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      if (date.toDateString() === today.toDateString()) {
+        return "Today";
+      } else if (date.toDateString() === yesterday.toDateString()) {
+        return "Yesterday";
+      } else {
+        return date.toLocaleDateString();
+      }
+    } catch (error) {
+      console.error("Error formatting date:", error, timestamp);
+      return "Invalid Date";
     }
   };
 
@@ -170,13 +197,12 @@ const ChatInterface = ({ isAdmin = false }) => {
             <MessageCircle className="h-6 w-6" />
             <div>
               <h2 className="text-lg font-semibold">
-                {isAdmin ? 'Admin Chat' : 'Support Chat'}
+                {isAdmin ? "Admin Chat" : "Support Chat"}
               </h2>
               <p className="text-blue-100 text-sm">
-                {isAdmin 
-                  ? `Chatting with ${conversation?.user_name || 'User'}` 
-                  : 'Chat with our support team'
-                }
+                {isAdmin
+                  ? `Chatting with ${conversation?.user_name || "User"}`
+                  : "Chat with our support team"}
               </p>
             </div>
           </div>
@@ -204,31 +230,40 @@ const ChatInterface = ({ isAdmin = false }) => {
                   {date}
                 </div>
               </div>
-              
+
               {/* Messages for this date */}
               {dateMessages.map((message) => {
-                const isFromCurrentUser = message.sender_role === (isAdmin ? 'admin' : 'student');
-                const isAdminMessage = message.sender_role === 'admin';
-                
+                const isFromCurrentUser =
+                  message.sender_role === (isAdmin ? "admin" : "student");
+                const isAdminMessage = message.sender_role === "admin";
+
                 return (
                   <div
                     key={`message-${message.id}`}
-                    className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}
+                    className={`flex ${
+                      isFromCurrentUser ? "justify-end" : "justify-start"
+                    } mb-2`}
                   >
                     <div
                       className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                         isFromCurrentUser
-                          ? 'bg-blue-600 text-white'
+                          ? "bg-blue-600 text-white"
                           : isAdminMessage
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-gray-200 text-gray-800'
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-200 text-gray-800"
                       }`}
                     >
                       <p className="text-sm">{message.content}</p>
-                      <div className={`flex items-center justify-end mt-1 space-x-1 ${
-                        isFromCurrentUser || isAdminMessage ? 'text-blue-100' : 'text-gray-500'
-                      }`}>
-                        <span className="text-xs">{formatTime(message.created_at)}</span>
+                      <div
+                        className={`flex items-center justify-end mt-1 space-x-1 ${
+                          isFromCurrentUser || isAdminMessage
+                            ? "text-blue-100"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        <span className="text-xs">
+                          {formatTime(message.created_at)}
+                        </span>
                         {isFromCurrentUser && (
                           <div>
                             {message.is_read ? (
@@ -253,7 +288,7 @@ const ChatInterface = ({ isAdmin = false }) => {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 mx-4 rounded">
           {error}
-          <button 
+          <button
             onClick={() => setError(null)}
             className="ml-2 text-red-500 hover:text-red-700"
           >
