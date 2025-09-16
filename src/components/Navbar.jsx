@@ -87,8 +87,12 @@ const Navbar = () => {
       icon: <Video className="h-4 w-4" />,
     },
     { name: "About", href: "/about", icon: <Info className="h-4 w-4" /> },
-    { name: "Contact", href: "/contact", icon: <Phone className="h-4 w-4" /> },
   ];
+
+  // Only add Contact link for non-admin users
+  if (role !== "admin") {
+    navLinks.push({ name: "Contact", href: "/contact", icon: <Phone className="h-4 w-4" /> });
+  }
 
   if (role === "admin") {
     navLinks.push({
