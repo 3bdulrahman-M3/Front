@@ -6,6 +6,9 @@ import {
   listInstructorRequests,
   approveInstructor,
   rejectInstructor,
+  listIdentityVerifications,
+  approveIdentityVerification,
+  rejectIdentityVerification,
   approveCourse,
   rejectCourse,
   createAdmin,
@@ -51,6 +54,16 @@ type InstructorRequest = {
   certifications?: string;
   documents?: string[];
   photo_url?: string;
+};
+type IdentityVerification = {
+  id: number;
+  user_id: number;
+  email: string;
+  name?: string;
+  status: string;
+  created_at?: string;
+  id_photo_url?: string;
+  notes?: string;
 };
 type CourseRequest = {
   id: number;
@@ -103,8 +116,12 @@ const AdminDashboard: React.FC = () => {
     InstructorRequest[]
   >([]);
   const [pendingCourses, setPendingCourses] = useState<CourseRequest[]>([]);
+  const [identityVerifications, setIdentityVerifications] = useState<
+    IdentityVerification[]
+  >([]);
   const [instructorReqSearch, setInstructorReqSearch] = useState("");
   const [courseReqSearch, setCourseReqSearch] = useState("");
+  const [identitySearch, setIdentitySearch] = useState("");
   const [viewInstructorReq, setViewInstructorReq] =
     useState<InstructorRequest | null>(null);
 
@@ -152,7 +169,7 @@ const AdminDashboard: React.FC = () => {
   );
   const { notifications } = useNotifications();
   const [pendingTab, setPendingTab] = useState<
-    "instructors" | "courses" | "rejected"
+    "instructors" | "identity" | "courses" | "rejected"
   >("instructors");
 
   useEffect(() => {
@@ -173,12 +190,14 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const loadPending = async () => {
       try {
-        const [reqs, courses] = await Promise.all([
+        const [reqs, courses, idvs] = await Promise.all([
           listInstructorRequests(),
           listPendingCourses(),
+          listIdentityVerifications(),
         ]);
         setInstructorRequests(reqs);
         setPendingCourses(courses);
+        setIdentityVerifications(idvs);
       } catch {
         // no-op
       }
@@ -357,6 +376,36 @@ const AdminDashboard: React.FC = () => {
       setPendingCourses(fresh);
     }
   };
+
+  const approveIdentityRow = async (id: number) => {
+    setIdentityVerifications((prev) => prev.filter((r) => r.id !== id));
+    try {
+      await approveIdentityVerification(id);
+    } catch {
+      const fresh = await listIdentityVerifications();
+      setIdentityVerifications(fresh);
+    }
+  };
+  const rejectIdentityRow = async (id: number) => {
+    setIdentityVerifications((prev) => prev.filter((r) => r.id !== id));
+    try {
+      await rejectIdentityVerification(id, "");
+    } catch {
+      const fresh = await listIdentityVerifications();
+      setIdentityVerifications(fresh);
+    }
+  };
+
+  const filteredIdentityVerifications = useMemo(() => {
+    const q = identitySearch.toLowerCase();
+    if (!q) return identityVerifications;
+    return identityVerifications.filter((r) =>
+      `${r.name || ""} ${r.email || ""} ${r.user_id || ""}`
+        .toString()
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [identitySearch, identityVerifications]);
   const rejectCourseRow = async (id: number) => {
     setPendingCourses((prev) => prev.filter((c) => c.id !== id));
     try {
@@ -580,10 +629,18 @@ const AdminDashboard: React.FC = () => {
                               key: "instructors",
                               label: "Instructor Requests",
                             },
+                            {
+                              key: "identity",
+                              label: "Identity Verifications",
+                            },
                             { key: "rejected", label: "Rejected Instructors" },
                             { key: "courses", label: "Course Requests" },
                           ] as Array<{
-                            key: "instructors" | "rejected" | "courses";
+                            key:
+                              | "instructors"
+                              | "identity"
+                              | "rejected"
+                              | "courses";
                             label: string;
                           }>
                         ).map((t) => (
@@ -827,6 +884,123 @@ const AdminDashboard: React.FC = () => {
                               </div>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {pendingTab === "identity" && (
+                        <div className="bg-white rounded-xl shadow p-4 md:p-6">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 rounded-md bg-green-100 text-green-600 flex items-center justify-center shadow-sm">
+                                <CheckSquare className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <h2 className="text-base md:text-lg font-semibold leading-tight">
+                                  Identity Verification Requests
+                                </h2>
+                                <p className="text-xs text-gray-500">
+                                  {
+                                    identityVerifications.filter(
+                                      (x) => x.status === "pending"
+                                    ).length
+                                  }{" "}
+                                  pending
+                                </p>
+                              </div>
+                            </div>
+                            <div className="relative w-full max-w-xs">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                              <input
+                                value={identitySearch}
+                                onChange={(e) =>
+                                  setIdentitySearch(e.target.value)
+                                }
+                                placeholder="Search by user, email or ID"
+                                className="w-full pl-9 pr-3 py-2 border rounded-md text-sm focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left table-fixed">
+                              <colgroup>
+                                <col className="w-[12%]" />
+                                <col className="w-[20%]" />
+                                <col className="w-[28%]" />
+                                <col className="w-[24%]" />
+                                <col className="w-[16%]" />
+                              </colgroup>
+                              <thead>
+                                <tr className="text-gray-600 text-sm">
+                                  <th className="py-2">User ID</th>
+                                  <th className="py-2">User</th>
+                                  <th className="py-2">Email</th>
+                                  <th className="py-2">ID Photo</th>
+                                  <th className="py-2">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <AnimatePresence>
+                                  {filteredIdentityVerifications
+                                    .filter((x) => x.status === "pending")
+                                    .map((r) => (
+                                      <motion.tr
+                                        key={r.id}
+                                        layout
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        className="border-t hover:bg-gray-50 transition-colors"
+                                      >
+                                        <td className="py-2 pr-3 whitespace-nowrap">
+                                          {r.user_id}
+                                        </td>
+                                        <td className="py-2 pr-3 whitespace-nowrap">
+                                          {r.name || r.user_id}
+                                        </td>
+                                        <td className="py-2 pr-3 whitespace-nowrap">
+                                          {r.email}
+                                        </td>
+                                        <td className="py-2 pr-3">
+                                          {r.id_photo_url ? (
+                                            <Zoom>
+                                              <img
+                                                src={r.id_photo_url}
+                                                alt="id"
+                                                className="h-12 w-12 object-cover rounded border cursor-zoom-in"
+                                              />
+                                            </Zoom>
+                                          ) : (
+                                            <span className="text-gray-400">
+                                              No image
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="py-2">
+                                          <div className="flex gap-2">
+                                            <button
+                                              className={btnApprove}
+                                              onClick={() =>
+                                                approveIdentityRow(r.id)
+                                              }
+                                            >
+                                              Approve
+                                            </button>
+                                            <button
+                                              className={btnReject}
+                                              onClick={() =>
+                                                rejectIdentityRow(r.id)
+                                              }
+                                            >
+                                              Reject
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </motion.tr>
+                                    ))}
+                                </AnimatePresence>
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       )}
 

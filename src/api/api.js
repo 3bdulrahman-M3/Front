@@ -174,6 +174,42 @@ export const updateProfile = async (data) => {
   return res.data;
 };
 
+// ====== Identity Verification ======
+export const requestIdentityVerification = async (file, notes = "") => {
+  const form = new FormData();
+  form.append("file", file);
+  if (notes) form.append("notes", notes);
+  const res = await api.post("auth/verification/request/", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data;
+};
+
+export const getMyIdentityVerification = async () => {
+  const res = await api.get("auth/verification/request/me/");
+  return res.data;
+};
+
+export const listIdentityVerifications = async () => {
+  const res = await api.get("auth/verification/requests/");
+  return res.data;
+};
+
+export const approveIdentityVerification = async (requestId) => {
+  const res = await api.post(
+    `auth/verification/requests/${requestId}/approve/`
+  );
+  return res.data;
+};
+
+export const rejectIdentityVerification = async (requestId, reason = "") => {
+  const res = await api.post(
+    `auth/verification/requests/${requestId}/reject/`,
+    { reason }
+  );
+  return res.data;
+};
+
 // ====== Instructor Request & Admin Approval ======
 export const requestInstructor = async (motivation = "") => {
   const res = await api.post("auth/instructor/request/", { motivation });
@@ -564,22 +600,32 @@ export const getConversationDetail = async (conversationId) => {
 
 // Get messages for a conversation (with pagination)
 export const getConversationMessages = async (conversationId, params = {}) => {
-  const res = await api.get(`chat/conversations/${conversationId}/messages/`, { params });
+  const res = await api.get(`chat/conversations/${conversationId}/messages/`, {
+    params,
+  });
   return res.data;
 };
 
 // Send a new message
 export const sendMessage = async (conversationId, data) => {
   const isFormData = data instanceof FormData;
-  const res = await api.post(`chat/conversations/${conversationId}/messages/`, data, {
-    headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
-  });
+  const res = await api.post(
+    `chat/conversations/${conversationId}/messages/`,
+    data,
+    {
+      headers: isFormData
+        ? { "Content-Type": "multipart/form-data" }
+        : undefined,
+    }
+  );
   return res.data;
 };
 
 // Mark specific messages as read
 export const markMessagesRead = async (messageIds) => {
-  const res = await api.post("chat/messages/mark-read/", { message_ids: messageIds });
+  const res = await api.post("chat/messages/mark-read/", {
+    message_ids: messageIds,
+  });
   return res.data;
 };
 
@@ -597,6 +643,8 @@ export const getUnreadCount = async () => {
 
 // Get unread message count for a specific conversation
 export const getConversationUnreadCount = async (conversationId) => {
-  const res = await api.get(`chat/conversations/${conversationId}/unread-count/`);
+  const res = await api.get(
+    `chat/conversations/${conversationId}/unread-count/`
+  );
   return res.data;
 };
