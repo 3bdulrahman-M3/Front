@@ -23,6 +23,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminChat from "./pages/AdminChat";
+import TransactionDetail from "./pages/admin/TransactionDetail";
 // import PendingApprovals from "./pages/admin/PendingApprovals";
 import RequireRole from "./components/RequireRole";
 import "./App.css"; // Assuming you have a global CSS file for styles
@@ -68,6 +69,14 @@ function App() {
             element={
               <RequireRole role="admin">
                 <AdminChat />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/admin/transactions/:id"
+            element={
+              <RequireRole role="admin">
+                <TransactionDetail />
               </RequireRole>
             }
           />

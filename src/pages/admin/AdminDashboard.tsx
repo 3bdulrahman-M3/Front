@@ -29,6 +29,7 @@ import ManageCategories from "../../components/ManageCategories";
 import Sidebar from "../../components/admin/Sidebar";
 import Topbar from "../../components/admin/Topbar";
 import StatCard from "../../components/admin/StatCard";
+import Transactions from "./Transactions";
 import { deleteUser } from "../../api/api.js";
 
 // Deprecated local Card removed after redesign
@@ -88,7 +89,8 @@ type SidebarKey =
   | "categories"
   | "analytics"
   | "admins"
-  | "chat";
+  | "chat"
+  | "transactions";
 
 const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -499,6 +501,9 @@ const AdminDashboard: React.FC = () => {
         break;
       case "chat":
         window.location.href = "/admin/chat";
+        break;
+      case "transactions":
+        setSection("transactions");
         break;
       default:
         break;
@@ -1421,6 +1426,16 @@ const AdminDashboard: React.FC = () => {
                         </div>
                       </div>
                     )}
+                  </motion.div>
+                )}
+                {section === "transactions" && (
+                  <motion.div
+                    key="transactions"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                  >
+                    <Transactions />
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -9,6 +9,7 @@ import {
   Layers,
   BarChart3,
   MessageCircle,
+  CreditCard,
 } from "lucide-react";
 
 type NavItem = {
@@ -21,7 +22,8 @@ type NavItem = {
     | "pending"
     | "categories"
     | "analytics"
-    | "chat";
+    | "chat"
+    | "transactions";
   label: string;
   icon: React.ReactNode;
 };
@@ -59,6 +61,11 @@ const ITEMS: NavItem[] = [
     key: "chat",
     label: "Support Chat",
     icon: <MessageCircle className="h-5 w-5" />,
+  },
+  {
+    key: "transactions",
+    label: "Transactions",
+    icon: <CreditCard className="h-5 w-5" />,
   },
 ];
 

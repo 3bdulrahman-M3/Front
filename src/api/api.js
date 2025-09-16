@@ -517,6 +517,18 @@ export const createPaymentIntent = async (courseId, data) => {
   return res.data;
 };
 
+// Get all transactions (admin only)
+export const getTransactions = async (params = {}) => {
+  const res = await api.get("transactions/", { params });
+  return res.data;
+};
+
+// Get transaction details
+export const getTransactionDetail = async (transactionId) => {
+  const res = await api.get(`transactions/${transactionId}/`);
+  return res.data;
+};
+
 //Chat
 
 export const askChat = async (message) => {
