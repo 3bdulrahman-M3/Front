@@ -91,13 +91,24 @@ const Navbar = () => {
 
   // Only add Contact link for non-admin users
   if (role !== "admin") {
-    navLinks.push({ name: "Contact", href: "/contact", icon: <Phone className="h-4 w-4" /> });
+    navLinks.push({
+      name: "Contact",
+      href: "/contact",
+      icon: <Phone className="h-4 w-4" />,
+    });
   }
 
   if (role === "admin") {
     navLinks.push({
       name: "Admin",
       href: "/admin",
+      icon: <GraduationCap className="h-4 w-4" />,
+    });
+  }
+  if (role === "instructor") {
+    navLinks.push({
+      name: "Instructor",
+      href: "/instructor",
       icon: <GraduationCap className="h-4 w-4" />,
     });
   }
@@ -188,7 +199,7 @@ const Navbar = () => {
             <div className="flex items-center space-x-4">
               {/* Environment Switcher */}
               <EnvironmentSwitcher />
-              
+
               {isLoggedIn ? (
                 <>
                   {/* Notification Bell */}

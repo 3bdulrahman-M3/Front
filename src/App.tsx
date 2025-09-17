@@ -28,6 +28,7 @@ import TransactionDetail from "./pages/admin/TransactionDetail";
 import RequireRole from "./components/RequireRole";
 import "./App.css"; // Assuming you have a global CSS file for styles
 import NotFound from "./pages/NotFound";
+import InstructorDashboard from "./pages/instructor/InstructorDashboard";
 
 function App() {
   return (
@@ -77,6 +78,15 @@ function App() {
             element={
               <RequireRole role="admin">
                 <TransactionDetail />
+              </RequireRole>
+            }
+          />
+          {/* Instructor */}
+          <Route
+            path="/instructor"
+            element={
+              <RequireRole role="instructor">
+                <InstructorDashboard />
               </RequireRole>
             }
           />

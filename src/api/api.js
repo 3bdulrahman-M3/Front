@@ -311,6 +311,12 @@ export const getRevenueTrends = async (range = "last_month") => {
   return res.data;
 };
 
+// ====== Instructor dashboard ======
+export const getInstructorDashboard = async (instructorId) => {
+  const res = await api.get(`instructor/${instructorId}/dashboard/`);
+  return res.data;
+};
+
 // ====== Admin categories (CRUD) ======
 export const adminListCategories = async (params = {}) => {
   const res = await api.get("admin/categories/", { params });
