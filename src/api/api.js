@@ -498,6 +498,16 @@ export const getSession = async (id) => {
   return res.data;
 };
 
+export const editSession = async (id, data) => {
+  const res = await api.put(`live/sessions/${id}/edit/`, data);
+  return res.data;
+};
+
+export const deleteSession = async (id) => {
+  const res = await api.delete(`live/sessions/${id}/delete/`);
+  return res.data;
+};
+
 export const getJitsiToken = async (roomName) => {
   const res = await api.post("live/jaas-token/", { room_name: roomName });
   return res.data;
