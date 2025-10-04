@@ -17,6 +17,7 @@ import {
   Edit3,
   Trash2,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const CourseReviewsSection = ({ courseId }) => {
   const [reviews, setReviews] = useState([]);
@@ -41,6 +42,8 @@ const CourseReviewsSection = ({ courseId }) => {
   const [inlineEditId, setInlineEditId] = useState(null);
   const [inlineContent, setInlineContent] = useState("");
   const [inlineRating, setInlineRating] = useState(5);
+
+  const navigate = useNavigate();
 
   const user = useMemo(() => {
     try {
@@ -90,6 +93,10 @@ const CourseReviewsSection = ({ courseId }) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      if (localStorage.getItem("user") === null) {
+        console.log("User not logged in. Redirecting to login page.");
+        return navigate("/login");
+      }
       await createReview(courseId, { content, rating });
       setContent("");
       setRating(5);
