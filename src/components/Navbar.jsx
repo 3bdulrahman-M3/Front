@@ -198,7 +198,7 @@ const Navbar = () => {
             {/* User Actions */}
             <div className="flex items-center space-x-4">
               {/* Environment Switcher */}
-              <EnvironmentSwitcher />
+              {/* <EnvironmentSwitcher /> */}
 
               {isLoggedIn ? (
                 <>
