@@ -55,7 +55,8 @@ const CoursesPage = () => {
         if (debouncedMax) params.max_price = debouncedMax;
         if (orderBy) params.order_by = orderBy;
 
-        const data = await getCourses(params);
+        const data = await getCourses(params);  
+        console.log("Fetched courses:", data.results);
         setCourses(data.results);
         setPages(data.pages);
         setLoading(false);
